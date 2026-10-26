@@ -1,0 +1,25 @@
+'use client'
+import { useEffect, useMemo, useState } from 'react'
+import Link from 'next/link'
+import { ArrowLeft, Barcode, Minus, Plus, Printer, Search, Trash2 } from 'lucide-react'
+
+type Product = { id: string; name: string; sku: string; base_unit: string; pack_size: number; price: number; tax_rate: number }
+type Line = Product & { quantity: number }
+const money = (value: number) => `₹${value.toFixed(2)}`
+
+export default function BillingPage() {
+  const [products, setProducts] = useState<Product[]>([])
+  const [lines, setLines] = useState<Line[]>([])
+  const [query, setQuery] = useState('')
+  const [discount, setDiscount] = useState('0')
+  const [message, setMessage] = useState('')
+  const [invoice, setInvoice] = useState<string | null>(null)
+  useEffect(() => { fetch('/api/products').then((response) => response.json()).then((body) => setProducts(body.products ?? [])) }, [])
+  const filtered = products.filter((product) => `${product.name} ${product.sku}`.toLowerCase().includes(query.toLowerCase()))
+  const subtotal = useMemo(() => lines.reduce((sum, line) => sum + Number(line.price) * line.quantity, 0), [lines])
+  const tax = useMemo(() => lines.reduce((sum, line) => sum + Number(line.price) * line.quantity * Number(line.tax_rate) / 100, 0), [lines])
+  const total = subtotal - Math.min(Number(discount) || 0, subtotal) + tax
+  const add = (product: Product) => setLines((current) => current.some((line) => line.id === product.id) ? current.map((line) => line.id === product.id ? { ...line, quantity: line.quantity + 1 } : line) : [...current, { ...product, quantity: 1 }])
+  const finalize = async () => { setMessage(''); const response = await fetch('/api/sales', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ items: lines.map((line) => ({ product_id: line.id, quantity: line.quantity })), discount: Number(discount) || 0, idempotency_key: crypto.randomUUID() }) }); const body = await response.json(); if (!response.ok) return setMessage(body.error ?? 'Unable to finalize invoice'); setInvoice(body.sale.invoice_number); setMessage('Invoice finalized.'); }
+  return <div className="dashboard-content billing-page"><div className="billing-header"><div><Link href="/dashboard" className="text-link"><ArrowLeft /> Dashboard</Link><p className="eyebrow">Manual billing</p><h1>Create a new sale</h1><p>Search your trusted catalogue, review every line, then finalize.</p></div><button className="secondary-button" onClick={() => window.print()}><Printer /> Print bill</button></div><div className="billing-grid"><section className="billing-panel"><div className="search-row"><Search /><input aria-label="Search products" placeholder="Search by product or SKU" value={query} onChange={(event) => setQuery(event.target.value)} /><Barcode /></div><div className="product-list">{filtered.map((product) => <button className="product-row" key={product.id} onClick={() => add(product)}><span><strong>{product.name}</strong><small>{product.sku} · {product.base_unit} · pack {product.pack_size}</small></span><span>{money(Number(product.price))}<Plus /></span></button>)}{!filtered.length && <p className="muted-copy">No catalogue products found.</p>}</div></section><section className="billing-panel bill-card"><div className="bill-title"><div><p className="eyebrow">Current invoice</p><h2>{invoice ?? 'Draft bill'}</h2></div><span className="status-chip">{invoice ? 'Confirmed' : 'Draft'}</span></div><div className="bill-lines">{lines.map((line) => <div className="bill-line" key={line.id}><div><strong>{line.name}</strong><small>{money(Number(line.price))} / {line.base_unit}</small></div><div className="quantity-control"><button aria-label={`Decrease ${line.name}`} onClick={() => setLines((current) => current.map((item) => item.id === line.id ? { ...item, quantity: Math.max(0, item.quantity - 1) } : item).filter((item) => item.quantity > 0))}><Minus /></button><span>{line.quantity}</span><button aria-label={`Increase ${line.name}`} onClick={() => add(line)}><Plus /></button></div><strong>{money(Number(line.price) * line.quantity)}</strong><button className="icon-button" aria-label={`Remove ${line.name}`} onClick={() => setLines((current) => current.filter((item) => item.id !== line.id))}><Trash2 /></button></div>)}{!lines.length && <p className="empty-bill">Add products to begin this invoice.</p>}</div><div className="bill-summary"><label>Discount <input type="number" min="0" step="0.01" value={discount} onChange={(event) => setDiscount(event.target.value)} /></label><div><span>Subtotal</span><strong>{money(subtotal)}</strong></div><div><span>Applicable tax</span><strong>{money(tax)}</strong></div><div className="bill-total"><span>Total</span><strong>{money(total)}</strong></div></div>{message && <p className="form-message">{message}</p>}<button className="primary-button full-button" disabled={!lines.length || Boolean(invoice)} onClick={finalize}>{invoice ? 'Invoice finalized' : 'Finalize invoice'}</button></section></div></div>
+}
