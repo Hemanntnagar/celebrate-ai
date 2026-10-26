@@ -25,15 +25,15 @@ export async function POST(request: Request) {
     return { product_id: product.id, product_name_snapshot: product.name, unit_snapshot: product.base_unit, price_snapshot: product.price, tax_rate_snapshot: product.tax_rate, quantity, line_subtotal: subtotal, line_tax: tax, line_total: round(subtotal + tax) }
   })
   try {
-    const subtotal = round(lines.reduce((sum, line) => sum + line.line_subtotal, 0))
+    const subtotal = round(lines.reduce((sum: number, line: { line_subtotal: number }) => sum + line.line_subtotal, 0))
     if (discount > subtotal) return NextResponse.json({ error: 'Discount cannot exceed subtotal' }, { status: 400 })
-    const taxTotal = round(lines.reduce((sum, line) => sum + line.line_tax, 0))
+    const taxTotal = round(lines.reduce((sum: number, line: { line_tax: number }) => sum + line.line_tax, 0))
     const total = round(subtotal - discount + taxTotal)
     const { data: existing } = await supabase.from('sales').select('id,invoice_number,state,total').eq('owner_id', user.id).eq('idempotency_key', idempotencyKey).maybeSingle()
     if (existing) return NextResponse.json({ sale: existing, duplicate: true })
     const { data: invoice, error } = await supabase.from('sales').insert({ owner_id: user.id, invoice_number: `INV-${Date.now().toString().slice(-6)}`, state: 'confirmed', currency: 'INR', discount, subtotal, tax_total: taxTotal, total, idempotency_key: idempotencyKey }).select().single()
     if (error || !invoice) throw new Error('Could not create invoice')
-    const { error: linesError } = await supabase.from('sale_lines').insert(lines.map((line) => ({ ...line, sale_id: invoice.id })))
+    const { error: linesError } = await supabase.from('sale_lines').insert(lines.map((line: Record<string, unknown>) => ({ ...line, sale_id: invoice.id })))
     if (linesError) throw new Error('Could not save invoice lines')
     await supabase.from('sale_audit_log').insert({ owner_id: user.id, sale_id: invoice.id, to_state: 'confirmed', reason: 'Manual sale' })
     return NextResponse.json({ sale: invoice, lines })
