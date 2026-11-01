@@ -1,10 +1,10 @@
+import { GoogleGenAI } from '@google/genai'
 import { NextResponse } from 'next/server'
-import OpenAI from 'openai'
 import { createClient } from '@/lib/supabase/server'
 import { messageSchema, planSchema } from '@/lib/planner/schema'
 
 const recentRequests = new Map<string, number>()
-const model = process.env.OPENAI_MODEL ?? 'gpt-4o-mini'
+const model = process.env.GEMINI_MODEL ?? 'gemini-3.8-flash'
 
 function withAmounts(plan: any, budget: number | null) {
   const total = plan.budget.allocations.reduce((sum: number, item: any) => sum + item.percentage, 0)
@@ -29,15 +29,21 @@ export async function POST(request: Request) {
   const { data: preferences } = await supabase.from('event_preferences').select('preferences').eq('event_id', event.id).single()
   const { data: history } = await supabase.from('planning_messages').select('role,content').eq('session_id', sessionId).order('created_at', { ascending: true }).limit(12)
   await supabase.from('planning_messages').insert({ session_id: sessionId, owner_id: user.id, role: 'user', content: parsed.data.message })
-  if (!process.env.OPENAI_API_KEY) return NextResponse.json({ error: 'AI planning is not configured. Add OPENAI_API_KEY to enable generation.', sessionId }, { status: 503 })
-  const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY, timeout: 20000, maxRetries: 2 })
+  if (!process.env.GEMINI_API_KEY) return NextResponse.json({ error: 'AI planning is not configured. Add GEMINI_API_KEY to enable generation.', sessionId }, { status: 503 })
+  const client = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY, httpOptions: { timeout: 20000 } })
   try {
-    const completion = await client.chat.completions.create({ model, temperature: 0.4, response_format: { type: 'json_object' }, messages: [
-      { role: 'system', content: `You are Celebrate AI, an event planning expert. Return ONLY valid JSON matching the requested plan shape. Generate practical ideas, label all vendor pricing and availability exactly unverified, and ask clarifying questions. Budget allocation percentages MUST total exactly 100. Never invent confirmed vendors, prices, or availability. Event context: ${JSON.stringify(event)}. Saved preferences: ${JSON.stringify(preferences?.preferences ?? {})}` },
-      ...(history ?? []).filter((item) => item.role === 'user' || item.role === 'assistant').map((item) => ({ role: item.role as 'user' | 'assistant', content: item.content })),
-      { role: 'user', content: parsed.data.message },
-    ] })
-    const raw = completion.choices[0]?.message?.content
+    const completion = await client.models.generateContent({
+      model,
+      contents: [
+        ...(history ?? []).filter((item) => item.role === 'user' || item.role === 'assistant').map((item) => ({ role: item.role === 'assistant' ? 'model' : 'user', parts: [{ text: item.content }] })),
+        { role: 'user', parts: [{ text: parsed.data.message }] },
+      ],
+      config: {
+        responseMimeType: 'application/json',
+        systemInstruction: `You are Celebrate AI, an event planning expert. Return ONLY valid JSON matching the requested plan shape. Generate practical ideas, label all vendor pricing and availability exactly unverified, and ask clarifying questions. Budget allocation percentages MUST total exactly 100. Never invent confirmed vendors, prices, or availability. Event context: ${JSON.stringify(event)}. Saved preferences: ${JSON.stringify(preferences?.preferences ?? {})}`,
+      },
+    })
+    const raw = completion.text
     const candidate = planSchema.parse(JSON.parse(raw ?? '{}'))
     const plan = withAmounts(candidate, event.budget)
     const { data: latest } = await supabase.from('event_plans').select('version').eq('event_id', event.id).order('version', { ascending: false }).limit(1).maybeSingle()
