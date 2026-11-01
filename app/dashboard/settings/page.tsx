@@ -1,0 +1,3 @@
+import { createClient } from '@/lib/supabase/server'
+import { DashboardShell } from '@/components/dashboard-shell'
+export default async function SettingsPage(){const supabase=await createClient();const {data:{user}}=await supabase.auth.getUser();return <DashboardShell name={user?.user_metadata?.full_name}><div className="page-content narrow"><p className="eyebrow">Your account</p><h1>Settings</h1><div className="settings-card"><span className="avatar large">{(user?.user_metadata?.full_name?.[0]??'A').toUpperCase()}</span><div><h3>{user?.user_metadata?.full_name||'Your account'}</h3><p className="muted">{user?.email}</p></div></div></div></DashboardShell>}

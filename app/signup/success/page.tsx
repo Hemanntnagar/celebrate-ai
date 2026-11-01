@@ -1,0 +1,2 @@
+import Link from 'next/link'
+export default function SignupSuccess() { return <main className="center-page"><div className="success-card"><div className="success-icon">✓</div><p className="eyebrow">One small step</p><h1>Check your inbox</h1><p className="muted">We sent you a confirmation link. Once you verify your email, your celebration workspace will be ready.</p><Link className="primary-button inline-button" href="/login">Return to sign in</Link></div></main> }
