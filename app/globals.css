@@ -19,4 +19,17 @@
 .inline-forms{display:flex;flex-direction:column;gap:12px}.inline-forms form{display:grid;grid-template-columns:1fr 1fr auto;gap:8px}
 .primary-button:focus-visible,.secondary-button:focus-visible,.workspace-link:focus-visible,.nav-link:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:3px solid #b86b4f55;outline-offset:2px}
 @media(max-width:900px){.metric-grid,.workspace-split,.inline-forms form{grid-template-columns:1fr}.calendar-grid{grid-template-columns:repeat(7,minmax(0,1fr))}.proposal-title{flex-direction:column}.table-row{flex-direction:column;align-items:flex-start}}
+.brand-mark{display:flex;align-items:center;line-height:0}
+.brand-logo-full{display:block;width:196px;height:auto}
+.brand-logo-mark{display:none;width:44px;height:44px}
+.sidebar nav{margin-top:36px}
+.brand-mark-auth .brand-logo-full{width:min(380px,100%)}
+.brand-mark-mobile{display:none}
+.brand-mark-mobile .brand-logo-full{width:168px}
+@media(max-width:800px){
+  .sidebar .brand-mark{justify-content:center;font-size:inherit}
+  .sidebar .brand-logo-full{display:none}
+  .sidebar .brand-logo-mark{display:block}
+  .brand-mark-mobile{display:flex}
+}
 

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
+import { BrandLogo } from '@/components/brand-logo'
 
 type Invite = {
   event?: { name: string; start_date: string; location: string; theme?: string }
@@ -44,7 +45,7 @@ export default function InvitePage() {
   return (
     <main className="auth-page">
       <section className="auth-visual">
-        <div className="brand-mark">Celebrate<span>AI</span></div>
+        <BrandLogo variant="auth" />
         <div>
           <p className="eyebrow">You are invited</p>
           <h1>{invite.event.name}</h1>
